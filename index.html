@@ -293,6 +293,26 @@
     color: var(--wine-deep);
     margin: 0 0 12px;
   }
+  .stats-row{
+    display:flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .stat-chip{
+    background: var(--ivory-deep);
+    border: 1px solid var(--blush);
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 12.5px;
+    color: var(--ink);
+  }
+  .stat-chip b{
+    display:block;
+    font-family:'Playfair Display', serif;
+    font-size: 18px;
+    color: var(--wine-deep);
+  }
   .admin-auth{
     margin-top: 12px;
     display:flex;
@@ -444,6 +464,7 @@
       </div>
       <div class="admin-panel" id="adminPanel" style="display:none;">
         <h3>Inscriptions reçues</h3>
+        <div id="adminStats"></div>
         <div id="adminList"><p class="empty-note">Chargement...</p></div>
       </div>
     </div>
@@ -455,7 +476,7 @@
   // Colle ici l'URL de ton déploiement Google Apps Script (se termine par /exec)
   // pour que chaque inscription soit aussi envoyée dans une Google Sheet.
   // Laisse vide ("") pour ne garder que l'enregistrement interne du formulaire.
-  const GOOGLE_SHEET_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbz5GIHWMVScNHik12PLtRimuc-v9MbKIvQHUIfv5fHyZLZfEJa0jrFb9BqjLPZ9dfG7/exec";
+  const GOOGLE_SHEET_WEBHOOK_URL = "";
 
   // Mot de passe demandé pour consulter le panneau des inscriptions.
   // Change-le pour ce que tu veux (garde des guillemets autour).
@@ -591,44 +612,55 @@
   });
 
   async function loadEntries(){
-    if (!window.storage) {
-      adminList.innerHTML = '<p class="empty-note">Ce panneau intégré n\'est disponible que si le formulaire est ouvert via un artefact Claude publié. Consulte la Google Sheet pour voir toutes les inscriptions.</p>';
+    const adminStats = document.getElementById('adminStats');
+    adminStats.innerHTML = '';
+
+    if (!GOOGLE_SHEET_WEBHOOK_URL) {
+      adminList.innerHTML = '<p class="empty-note">Configure GOOGLE_SHEET_WEBHOOK_URL en haut du script pour afficher les inscriptions ici.</p>';
       return;
     }
+
     try {
-      const listResult = await window.storage.list('inscriptions:', true);
-      const keys = (listResult && listResult.keys) ? listResult.keys : [];
-      if (keys.length === 0) {
+      const url = `${GOOGLE_SHEET_WEBHOOK_URL}?token=${encodeURIComponent(ADMIN_PASSWORD)}`;
+      const res = await fetch(url);
+      const entries = await res.json();
+
+      if (!Array.isArray(entries)) {
+        adminList.innerHTML = '<p class="empty-note">Accès refusé par la Google Sheet. Vérifie que le script Apps Script a bien été redéployé (nouvelle version) après ajout de doGet.</p>';
+        return;
+      }
+      if (entries.length === 0) {
         adminList.innerHTML = '<p class="empty-note">Aucune inscription pour le moment.</p>';
         return;
       }
-      const entries = [];
-      for (const k of keys) {
-        try {
-          const r = await window.storage.get(k, true);
-          if (r && r.value) entries.push(JSON.parse(r.value));
-        } catch (e) {
-          console.error('Read error for', k, e);
-        }
-      }
-      entries.sort((a, b) => (b.submittedAt || 0) - (a.submittedAt || 0));
 
-      adminList.innerHTML = entries.map(en => {
-        const d = en.submittedAt ? new Date(en.submittedAt).toLocaleString('fr-FR') : '';
+      const total = entries.length;
+      const dispoOui = entries.filter(en => en['Disponible JPPMM'] === 'Oui').length;
+      const respOui = entries.filter(en => en['Responsabilité'] === 'Oui').length;
+
+      adminStats.innerHTML = `
+        <div class="stats-row">
+          <div class="stat-chip"><b>${total}</b>Inscriptions</div>
+          <div class="stat-chip"><b>${dispoOui}</b>Disponibles JPPMM</div>
+          <div class="stat-chip"><b>${respOui}</b>Avec responsabilité</div>
+        </div>`;
+
+      adminList.innerHTML = entries.slice().reverse().map(en => {
+        const d = en['Date'] ? new Date(en['Date']).toLocaleString('fr-FR') : '';
         return `<details class="entry">
-          <summary><span>${escapeHtml(en.nom || 'Sans nom')}</span><span class="date">${d}</span></summary>
+          <summary><span>${escapeHtml(en['Nom'] || 'Sans nom')}</span><span class="date">${d}</span></summary>
           <div class="details">
-            <p><b>Enfant de Dieu :</b> ${escapeHtml(en.conversion)}</p>
-            <p><b>Église :</b> ${escapeHtml(en.eglise)}</p>
-            <p><b>Responsabilité :</b> ${escapeHtml(en.responsabilite)}${en.responsabiliteDetail ? ' — ' + escapeHtml(en.responsabiliteDetail) : ''}</p>
-            <p><b>Étapes de mariage :</b> ${escapeHtml(en.etapesMariage)}</p>
-            <p><b>Transformation attendue :</b> ${escapeHtml(en.transformation)}</p>
-            <p><b>Disponible JPPMM :</b> ${escapeHtml(en.disponibleJppmm)}</p>
+            <p><b>Enfant de Dieu :</b> ${escapeHtml(en['Conversion'])}</p>
+            <p><b>Église :</b> ${escapeHtml(en['Église'])}</p>
+            <p><b>Responsabilité :</b> ${escapeHtml(en['Responsabilité'])}${en['Détail responsabilité'] ? ' — ' + escapeHtml(en['Détail responsabilité']) : ''}</p>
+            <p><b>Étapes de mariage :</b> ${escapeHtml(en['Étapes mariage'])}</p>
+            <p><b>Transformation attendue :</b> ${escapeHtml(en['Transformation'])}</p>
+            <p><b>Disponible JPPMM :</b> ${escapeHtml(en['Disponible JPPMM'])}</p>
           </div>
         </details>`;
       }).join('');
     } catch (err) {
-      console.error('Storage error:', err);
+      console.error('Sheet read error:', err);
       adminList.innerHTML = '<p class="empty-note">Impossible de charger les inscriptions pour le moment.</p>';
     }
   }
