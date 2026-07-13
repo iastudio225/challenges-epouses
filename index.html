@@ -635,8 +635,8 @@
       }
 
       const total = entries.length;
-      const dispoOui = entries.filter(en => en['Disponible JPPMM'] === 'Oui').length;
-      const respOui = entries.filter(en => en['Responsabilité'] === 'Oui').length;
+      const dispoOui = entries.filter(en => en.disponibleJppmm === 'Oui').length;
+      const respOui = entries.filter(en => en.responsabilite === 'Oui').length;
 
       adminStats.innerHTML = `
         <div class="stats-row">
@@ -646,16 +646,16 @@
         </div>`;
 
       adminList.innerHTML = entries.slice().reverse().map(en => {
-        const d = en['Date'] ? new Date(en['Date']).toLocaleString('fr-FR') : '';
+        const d = en.date ? new Date(en.date).toLocaleString('fr-FR') : '';
         return `<details class="entry">
-          <summary><span>${escapeHtml(en['Nom'] || 'Sans nom')}</span><span class="date">${d}</span></summary>
+          <summary><span>${escapeHtml(en.nom || 'Sans nom')}</span><span class="date">${d}</span></summary>
           <div class="details">
-            <p><b>Enfant de Dieu :</b> ${escapeHtml(en['Conversion'])}</p>
-            <p><b>Église :</b> ${escapeHtml(en['Église'])}</p>
-            <p><b>Responsabilité :</b> ${escapeHtml(en['Responsabilité'])}${en['Détail responsabilité'] ? ' — ' + escapeHtml(en['Détail responsabilité']) : ''}</p>
-            <p><b>Étapes de mariage :</b> ${escapeHtml(en['Étapes mariage'])}</p>
-            <p><b>Transformation attendue :</b> ${escapeHtml(en['Transformation'])}</p>
-            <p><b>Disponible JPPMM :</b> ${escapeHtml(en['Disponible JPPMM'])}</p>
+            <p><b>Enfant de Dieu :</b> ${escapeHtml(en.conversion)}</p>
+            <p><b>Église :</b> ${escapeHtml(en.eglise)}</p>
+            <p><b>Responsabilité :</b> ${escapeHtml(en.responsabilite)}${en.responsabiliteDetail ? ' — ' + escapeHtml(en.responsabiliteDetail) : ''}</p>
+            <p><b>Étapes de mariage :</b> ${escapeHtml(en.etapesMariage)}</p>
+            <p><b>Transformation attendue :</b> ${escapeHtml(en.transformation)}</p>
+            <p><b>Disponible JPPMM :</b> ${escapeHtml(en.disponibleJppmm)}</p>
           </div>
         </details>`;
       }).join('');
